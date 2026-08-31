@@ -25,6 +25,15 @@ export interface UseContainerWidthOptions {
    * Defaults to 1280.
    */
   initialWidth?: number;
+
+  /**
+   * Trailing debounce in milliseconds for width updates from the
+   * ResizeObserver (#2254). While the container is resizing, the rendered
+   * width freezes; once it holds steady for this long, the latest measured
+   * width commits, exactly once per burst of notifications. Absent or 0
+   * keeps immediate updates on every notification.
+   */
+  debounceTimeout?: number;
 }
 
 /**
@@ -115,7 +124,11 @@ export interface UseContainerWidthResult {
 export function useContainerWidth(
   options: UseContainerWidthOptions = {}
 ): UseContainerWidthResult {
-  const { measureBeforeMount = false, initialWidth = 1280 } = options;
+  const {
+    measureBeforeMount = false,
+    initialWidth = 1280,
+    debounceTimeout
+  } = options;
 
   const [width, setWidth] = useState(initialWidth);
   const [mounted, setMounted] = useState(!measureBeforeMount);
@@ -145,6 +158,7 @@ export function useContainerWidth(
     // Set up ResizeObserver
     if (typeof ResizeObserver !== "undefined") {
       let rafId: number | null = null;
+      let debounceTimer: number | undefined;
 
       observerRef.current = new ResizeObserver(entries => {
         const entry = entries[0];
@@ -156,6 +170,20 @@ export function useContainerWidth(
           // out: each one re-renders the grid, which changes the container
           // height, which produces another notification (#2271).
           const newWidth = Math.round(entry.contentRect.width);
+
+          if (debounceTimeout && debounceTimeout > 0) {
+            // Trailing debounce (#2254): each notification holds the latest
+            // measured width and restarts the timer, so a burst commits once
+            // after the container has been steady for debounceTimeout ms.
+            // The timer fires outside the ResizeObserver callback, so the
+            // RAF deferral below is not needed on this path.
+            window.clearTimeout(debounceTimer);
+            debounceTimer = window.setTimeout(() => {
+              setWidth(prev => (prev === newWidth ? prev : newWidth));
+              debounceTimer = undefined;
+            }, debounceTimeout);
+            return;
+          }
 
           // Defer state update to next paint cycle to avoid
           // "ResizeObserver loop completed with undelivered notifications" error (#1959)
@@ -172,10 +200,13 @@ export function useContainerWidth(
       observerRef.current.observe(node);
 
       return () => {
-        // Cancel any pending RAF to prevent state updates on unmounted component
+        // Cancel any pending RAF or debounce timer to prevent state updates
+        // on unmounted component
         if (rafId !== null) {
           cancelAnimationFrame(rafId);
         }
+        window.clearTimeout(debounceTimer);
+        debounceTimer = undefined;
         if (observerRef.current) {
           observerRef.current.disconnect();
           observerRef.current = null;
@@ -189,7 +220,7 @@ export function useContainerWidth(
         observerRef.current = null;
       }
     };
-  }, [measureWidth]);
+  }, [measureWidth, debounceTimeout]);
 
   return {
     width,
