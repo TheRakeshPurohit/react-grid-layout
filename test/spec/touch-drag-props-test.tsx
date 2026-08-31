@@ -19,6 +19,7 @@ jest.mock("react-draggable", () => {
 });
 
 import { GridItem, type GridItemProps } from "../../src/react/index";
+import ResponsiveReactGridLayout from "../../src/legacy/ResponsiveReactGridLayout";
 
 describe("#1793 allowMobileScroll forwarding", () => {
   beforeEach(() => {
@@ -56,6 +57,42 @@ describe("#1793 allowMobileScroll forwarding", () => {
 
   it("forwards allowMobileScroll to DraggableCore when set", () => {
     const coreProps = renderItem({ allowMobileScroll: true });
+    expect(coreProps.allowMobileScroll).toBe(true);
+  });
+});
+
+describe("#1793 allowMobileScroll through ResponsiveReactGridLayout", () => {
+  beforeEach(() => {
+    captured.length = 0;
+  });
+
+  function renderResponsive(
+    props: Partial<React.ComponentProps<typeof ResponsiveReactGridLayout>> = {}
+  ) {
+    render(
+      <ResponsiveReactGridLayout
+        layout={[{ i: "0", x: 0, y: 0, w: 2, h: 2 }]}
+        cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+        width={1280}
+        breakpoint="lg"
+        rowHeight={30}
+        isDraggable={true}
+        {...props}
+      >
+        <div key="0">child</div>
+      </ResponsiveReactGridLayout>
+    );
+    return captured[captured.length - 1];
+  }
+
+  it("does not pass allowMobileScroll when not provided (default off)", () => {
+    const coreProps = renderResponsive();
+    expect(coreProps.allowMobileScroll).toBeUndefined();
+  });
+
+  it("forwards the flat prop through dragConfig to DraggableCore", () => {
+    const coreProps = renderResponsive({ allowMobileScroll: true });
     expect(coreProps.allowMobileScroll).toBe(true);
   });
 });

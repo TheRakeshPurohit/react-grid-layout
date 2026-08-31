@@ -86,6 +86,8 @@ export interface LegacyResponsiveReactGridLayoutProps<
   isBounded?: boolean;
   draggableHandle?: string;
   draggableCancel?: string;
+  /** Allow native touch scroll while dragging (#1793) */
+  allowMobileScroll?: boolean;
 
   // Resize behavior (→ resizeConfig)
   isResizable?: boolean;
@@ -171,6 +173,7 @@ function ResponsiveReactGridLayoutInner<B extends Breakpoint = string>(
     isBounded = false,
     draggableHandle,
     draggableCancel,
+    allowMobileScroll,
 
     // Resize behavior
     isResizable = true,
@@ -220,7 +223,8 @@ function ResponsiveReactGridLayoutInner<B extends Breakpoint = string>(
     enabled: isDraggable,
     bounded: isBounded,
     handle: draggableHandle,
-    cancel: draggableCancel
+    cancel: draggableCancel,
+    allowMobileScroll
   };
 
   const resizeConfig: Partial<ResizeConfig> = {
